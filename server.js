@@ -450,6 +450,61 @@ app.put("/api/apostas/:id", async (req, res) => {
   }
 });
 
+app.get("/api/acertos-rodada", async (req, res) => {
+  try {
+
+    const { data: resultados, error: resultadosError } = await supabase
+      .from("resultados")
+      .select("*")
+      .order("criado_em", { ascending: false });
+
+    if (resultadosError) throw resultadosError;
+
+    const retorno = [];
+
+    for (const resultado of resultados) {
+
+      const { data: apostas, error: apostasError } = await supabase
+        .from("apostas")
+        .select(`
+          id,
+          jogo,
+          placar_casa,
+          placar_fora,
+          participante:participantes (
+            nome
+          )
+        `)
+        .eq("status", "ativa")
+        .eq("jogo", resultado.jogo)
+        .eq("placar_casa", resultado.placar_casa)
+        .eq("placar_fora", resultado.placar_fora);
+
+      if (apostasError) throw apostasError;
+
+      retorno.push({
+        jogo: resultado.jogo,
+        time_casa: resultado.time_casa,
+        time_fora: resultado.time_fora,
+        placar_casa: resultado.placar_casa,
+        placar_fora: resultado.placar_fora,
+        ganhadores: (apostas || []).map(
+          (aposta) => aposta.participante?.nome
+        )
+      });
+    }
+
+    res.json(retorno);
+
+  } catch (error) {
+    console.error("[ACERTOS_RODADA]", error);
+
+    res.status(500).json({
+      erro: "Erro ao buscar acertos da rodada."
+    });
+  }
+});
+
 app.post("/webhook/mercado-pago", async (req, res) => {
   try {
     console.log("[WEBHOOK_MP] Notificação recebida", {

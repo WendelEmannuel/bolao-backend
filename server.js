@@ -452,7 +452,6 @@ app.put("/api/apostas/:id", async (req, res) => {
 
 app.get("/api/acertos-rodada", async (req, res) => {
   try {
-
     const { data: resultados, error: resultadosError } = await supabase
       .from("resultados")
       .select("*")
@@ -462,19 +461,10 @@ app.get("/api/acertos-rodada", async (req, res) => {
 
     const retorno = [];
 
-    for (const resultado of resultados) {
-
+    for (const resultado of resultados || []) {
       const { data: apostas, error: apostasError } = await supabase
         .from("apostas")
-        .select(`
-          id,
-          jogo,
-          placar_casa,
-          placar_fora,
-          participante:participantes (
-            nome
-          )
-        `)
+        .select("id, participante_id, jogo, placar_casa, placar_fora")
         .eq("status", "ativa")
         .eq("jogo", resultado.jogo)
         .eq("placar_casa", resultado.placar_casa)
@@ -482,15 +472,33 @@ app.get("/api/acertos-rodada", async (req, res) => {
 
       if (apostasError) throw apostasError;
 
+      const participanteIds = [...new Set((apostas || []).map(a => a.participante_id).filter(Boolean))];
+
+      let participantes = [];
+
+      if (participanteIds.length) {
+        const { data, error } = await supabase
+          .from("participantes")
+          .select("id, nome")
+          .in("id", participanteIds);
+
+        if (error) throw error;
+
+        participantes = data || [];
+      }
+
+      const nomes = (apostas || []).map((aposta) => {
+        const participante = participantes.find(p => p.id === aposta.participante_id);
+        return participante?.nome || "Participante";
+      });
+
       retorno.push({
         jogo: resultado.jogo,
         time_casa: resultado.time_casa,
         time_fora: resultado.time_fora,
         placar_casa: resultado.placar_casa,
         placar_fora: resultado.placar_fora,
-        ganhadores: (apostas || []).map(
-          (aposta) => aposta.participante?.nome
-        )
+        ganhadores: nomes
       });
     }
 
@@ -500,7 +508,8 @@ app.get("/api/acertos-rodada", async (req, res) => {
     console.error("[ACERTOS_RODADA]", error);
 
     res.status(500).json({
-      erro: "Erro ao buscar acertos da rodada."
+      erro: "Erro ao buscar acertos da rodada.",
+      detalhe: error.message
     });
   }
 });

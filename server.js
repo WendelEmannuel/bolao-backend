@@ -420,6 +420,49 @@ app.post("/webhook/mercado-pago", async (req, res) => {
   }
 });
 
+app.get("/api/resumo-jogos", async (req, res) => {
+  try {
+
+    const { data: apostas, error } = await supabase
+      .from("apostas")
+      .select("jogo")
+      .eq("status", "ativa");
+
+    if (error) throw error;
+
+    const resumo = {};
+
+    (apostas || []).forEach((aposta) => {
+
+      if (!resumo[aposta.jogo]) {
+        resumo[aposta.jogo] = {
+          jogo: aposta.jogo,
+          apostadores: 0
+        };
+      }
+
+      resumo[aposta.jogo].apostadores++;
+    });
+
+    const resultado = Object.values(resumo).map((item) => ({
+      ...item,
+      arrecadado: item.apostadores * 10,
+      premio: item.apostadores * 10 * 0.85
+    }));
+
+    res.json({
+      jogos: resultado
+    });
+
+  } catch (erro) {
+    console.error(erro);
+
+    res.status(500).json({
+      erro: "Erro ao gerar resumo."
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

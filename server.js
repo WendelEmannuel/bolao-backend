@@ -157,6 +157,13 @@ app.post("/api/criar-pix", async (req, res) => {
     const qrCode = pagamento?.point_of_interaction?.transaction_data?.qr_code;
     const qrCodeBase64 = pagamento?.point_of_interaction?.transaction_data?.qr_code_base64;
 
+    console.log("[PIX_DEBUG]", {
+    qrCodeExiste: !!qrCode,
+    qrCodeTamanho: qrCode?.length || 0,
+    qrCodeBase64Existe: !!qrCodeBase64,
+    qrCodeBase64Tamanho: qrCodeBase64?.length || 0
+    });
+
     if (!qrCode || !qrCodeBase64) {
       throw new Error("Mercado Pago não retornou QR Code Pix.");
     }
@@ -175,20 +182,25 @@ app.post("/api/criar-pix", async (req, res) => {
     if (pagamentoError) throw pagamentoError;
 
     console.log("[CRIAR_PIX] Pix criado com sucesso", {
-      participante_id: participante.id,
-      aposta_id: aposta?.id || null,
-      pagamento_id: pagamento.id,
-      valor: PIX_AMOUNT
+    participante_id: participante.id,
+    aposta_id: aposta?.id || null,
+    pagamento_id: pagamento.id,
+    valor: PIX_AMOUNT
+    });
+
+    console.log("[PIX_RETORNO_FRONT]", {
+    copia_cola: qrCode,
+    tamanho: qrCode?.length || 0
     });
 
     res.json({
-      participante_id: participante.id,
-      aposta_id: aposta?.id || null,
-      pagamento_id: pagamento.id,
-      valor: PIX_AMOUNT,
-      qr_code_base64: qrCodeBase64,
-      copia_cola: qrCode,
-      status_url: `/api/status-pagamento/${participante.id}`
+    participante_id: participante.id,
+    aposta_id: aposta?.id || null,
+    pagamento_id: pagamento.id,
+    valor: PIX_AMOUNT,
+    qr_code_base64: qrCodeBase64,
+    copia_cola: qrCode,
+    status_url: `/api/status-pagamento/${participante.id}`
     });
 
   } catch (error) {

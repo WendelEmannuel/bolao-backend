@@ -52,7 +52,7 @@ app.post("/api/criar-pix", async (req, res) => {
 
     const pagamento = await payment.create({
       body: {
-        transaction_amount: 10,
+        transaction_amount: 0.01,
         description: "Inscrição Bolão dos Campeões",
         payment_method_id: "pix",
         payer: {
@@ -70,7 +70,7 @@ app.post("/api/criar-pix", async (req, res) => {
       .from("pagamentos")
       .insert({
         participante_id: participante.id,
-        valor: 10,
+        valor: 0.01,
         status: "pendente",
         mercado_pago_id: String(pagamento.id),
         qr_code: qrCodeBase64,

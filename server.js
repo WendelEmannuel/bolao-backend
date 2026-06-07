@@ -238,6 +238,63 @@ app.get("/api/status-pagamento/:participanteId", async (req, res) => {
   }
 });
 
+app.get("/api/apostas", async (req, res) => {
+  try {
+    const status = req.query.status || "ativa";
+    const jogo = req.query.jogo;
+
+    let query = supabase
+      .from("apostas")
+      .select(`
+        id,
+        jogo,
+        time_casa,
+        time_fora,
+        placar_casa,
+        placar_fora,
+        status,
+        criado_em,
+        participante:participantes (
+          id,
+          nome
+        )
+      `)
+      .eq("status", status)
+      .order("criado_em", { ascending: false });
+
+    if (jogo) {
+      query = query.eq("jogo", jogo);
+    }
+
+    const { data, error } = await query;
+
+    if (error) throw error;
+
+    const apostas = (data || []).map((aposta) => ({
+      id: aposta.id,
+      nome: aposta.participante?.nome || "Participante",
+      participante_id: aposta.participante?.id || null,
+      jogo: aposta.jogo,
+      time_casa: aposta.time_casa,
+      time_fora: aposta.time_fora,
+      placar_casa: aposta.placar_casa,
+      placar_fora: aposta.placar_fora,
+      status: aposta.status,
+      criado_em: aposta.criado_em
+    }));
+
+    res.json({ apostas });
+
+  } catch (error) {
+    console.error("[APOSTAS] Erro ao listar apostas:", error);
+
+    res.status(500).json({
+      erro: "Erro ao listar apostas.",
+      detalhe: error.message
+    });
+  }
+});
+
 app.post("/webhook/mercado-pago", async (req, res) => {
   try {
     console.log("[WEBHOOK_MP] Notificação recebida", {

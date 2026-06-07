@@ -295,6 +295,58 @@ app.get("/api/apostas", async (req, res) => {
   }
 });
 
+app.get("/api/minhas-apostas", async (req, res) => {
+  try {
+    const { whatsapp } = req.query;
+
+    if (!whatsapp) {
+      return res.status(400).json({ erro: "WhatsApp é obrigatório." });
+    }
+
+    const somenteNumeros = String(whatsapp).replace(/\D/g, "");
+
+    const { data, error } = await supabase
+      .from("apostas")
+      .select(`
+        id,
+        jogo,
+        time_casa,
+        time_fora,
+        placar_casa,
+        placar_fora,
+        status,
+        criado_em,
+        participante:participantes (
+          id,
+          nome,
+          whatsapp,
+          status
+        )
+      `)
+      .eq("status", "ativa");
+
+    if (error) throw error;
+
+    const apostas = (data || []).filter((aposta) => {
+      const telefoneBanco = String(aposta.participante?.whatsapp || "").replace(/\D/g, "");
+      return (
+        telefoneBanco === somenteNumeros ||
+        telefoneBanco.endsWith(somenteNumeros) ||
+        somenteNumeros.endsWith(telefoneBanco)
+        );
+    });
+
+    res.json({ apostas });
+
+  } catch (error) {
+    console.error("[MINHAS_APOSTAS] Erro:", error);
+    res.status(500).json({
+      erro: "Erro ao buscar suas apostas.",
+      detalhe: error.message
+    });
+  }
+});
+
 app.post("/webhook/mercado-pago", async (req, res) => {
   try {
     console.log("[WEBHOOK_MP] Notificação recebida", {

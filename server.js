@@ -630,6 +630,87 @@ app.get("/api/resumo-jogos", async (req, res) => {
   }
 });
 
+app.get("/api/ultimos-vencedores", async (req, res) => {
+  try {
+    const { data: resultados, error: resultadosError } = await supabase
+      .from("resultados")
+      .select("*")
+      .order("criado_em", { ascending: false });
+
+    if (resultadosError) throw resultadosError;
+
+    const vencedores = [];
+
+    for (const resultado of resultados || []) {
+      const { data: apostasDoJogo, error: apostasJogoError } = await supabase
+        .from("apostas")
+        .select("id")
+        .eq("status", "ativa")
+        .eq("jogo", resultado.jogo);
+
+      if (apostasJogoError) throw apostasJogoError;
+
+      const totalApostas = apostasDoJogo?.length || 0;
+      const premioTotal = totalApostas * 10 * 0.85;
+
+      const { data: apostasGanhadoras, error: apostasGanhadorasError } = await supabase
+        .from("apostas")
+        .select("id, participante_id, jogo, placar_casa, placar_fora")
+        .eq("status", "ativa")
+        .eq("jogo", resultado.jogo)
+        .eq("placar_casa", resultado.placar_casa)
+        .eq("placar_fora", resultado.placar_fora);
+
+      if (apostasGanhadorasError) throw apostasGanhadorasError;
+
+      const participanteIds = [
+        ...new Set((apostasGanhadoras || []).map(a => a.participante_id).filter(Boolean))
+      ];
+
+      let participantes = [];
+
+      if (participanteIds.length) {
+        const { data, error } = await supabase
+          .from("participantes")
+          .select("id, nome")
+          .in("id", participanteIds);
+
+        if (error) throw error;
+        participantes = data || [];
+      }
+
+      const premioPorGanhador =
+        apostasGanhadoras?.length > 0
+          ? premioTotal / apostasGanhadoras.length
+          : 0;
+
+      (apostasGanhadoras || []).forEach((aposta) => {
+        const participante = participantes.find(p => p.id === aposta.participante_id);
+
+        vencedores.push({
+          nome: participante?.nome || "Participante",
+          jogo: resultado.jogo,
+          placar: `${resultado.time_casa} ${resultado.placar_casa} x ${resultado.placar_fora} ${resultado.time_fora}`,
+          valor: premioPorGanhador,
+          criado_em: resultado.criado_em
+        });
+      });
+    }
+
+    res.json({
+      vencedores: vencedores.slice(0, 6)
+    });
+
+  } catch (error) {
+    console.error("[ULTIMOS_VENCEDORES]", error);
+
+    res.status(500).json({
+      erro: "Erro ao buscar últimos vencedores.",
+      detalhe: error.message
+    });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {

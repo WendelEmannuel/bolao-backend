@@ -33,7 +33,7 @@ const mpClient = new MercadoPagoConfig({
 });
 
 const payment = new Payment(mpClient);
-const PIX_AMOUNT = Number(process.env.PIX_AMOUNT || "0.01");
+const PIX_AMOUNT = Number(process.env.PIX_AMOUNT || "10");
 
 function normalizarEmail(email) {
   if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return email;
@@ -75,9 +75,6 @@ app.get("/api/health", (req, res) => {
 
 app.post("/api/criar-pix", async (req, res) => {
   try {
-    console.log("[CRIAR_PIX] Requisição recebida", {
-      body: { ...req.body, chave_pix: req.body?.chave_pix ? "***" : undefined, pix: req.body?.pix ? "***" : undefined }
-    });
 
     const {
       nome,
@@ -157,12 +154,6 @@ app.post("/api/criar-pix", async (req, res) => {
     const qrCode = pagamento?.point_of_interaction?.transaction_data?.qr_code;
     const qrCodeBase64 = pagamento?.point_of_interaction?.transaction_data?.qr_code_base64;
 
-    console.log("[PIX_DEBUG]", {
-    qrCodeExiste: !!qrCode,
-    qrCodeTamanho: qrCode?.length || 0,
-    qrCodeBase64Existe: !!qrCodeBase64,
-    qrCodeBase64Tamanho: qrCodeBase64?.length || 0
-    });
 
     if (!qrCode || !qrCodeBase64) {
       throw new Error("Mercado Pago não retornou QR Code Pix.");
@@ -180,18 +171,6 @@ app.post("/api/criar-pix", async (req, res) => {
       });
 
     if (pagamentoError) throw pagamentoError;
-
-    console.log("[CRIAR_PIX] Pix criado com sucesso", {
-    participante_id: participante.id,
-    aposta_id: aposta?.id || null,
-    pagamento_id: pagamento.id,
-    valor: PIX_AMOUNT
-    });
-
-    console.log("[PIX_RETORNO_FRONT]", {
-    copia_cola: qrCode,
-    tamanho: qrCode?.length || 0
-    });
 
     res.json({
     participante_id: participante.id,
@@ -516,26 +495,13 @@ app.get("/api/acertos-rodada", async (req, res) => {
 
 app.post("/webhook/mercado-pago", async (req, res) => {
   try {
-    console.log("[WEBHOOK_MP] Notificação recebida", {
-      query: req.query,
-      body: req.body
-    });
-
     const paymentId = req.body?.data?.id || req.query?.id || req.query?.['data.id'];
 
     if (!paymentId) {
-      console.log("[WEBHOOK_MP] Sem paymentId. Retornando 200.");
       return res.sendStatus(200);
     }
 
     const pagamentoMP = await payment.get({ id: paymentId });
-
-    console.log("[WEBHOOK_MP] Pagamento consultado no Mercado Pago", {
-      paymentId,
-      status: pagamentoMP.status,
-      external_reference: pagamentoMP.external_reference,
-      metadata: pagamentoMP.metadata
-    });
 
     const participanteId = pagamentoMP.external_reference || pagamentoMP.metadata?.participante_id;
     const apostaId = pagamentoMP.metadata?.aposta_id;
@@ -573,11 +539,6 @@ app.post("/webhook/mercado-pago", async (req, res) => {
       const { error: apostaUpdateError } = await apostasQuery;
       if (apostaUpdateError) throw apostaUpdateError;
 
-      console.log("[WEBHOOK_MP] Pagamento aprovado e dados atualizados", {
-        paymentId,
-        participanteId,
-        apostaId: apostaId || "todas_do_participante"
-      });
     }
 
     res.sendStatus(200);

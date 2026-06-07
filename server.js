@@ -347,6 +347,97 @@ app.get("/api/minhas-apostas", async (req, res) => {
   }
 });
 
+const prazosEdicaoJogos = {
+  "México x África do Sul": "2026-06-11T15:55:00",
+  "Brasil x Croácia": "2026-06-12T20:55:00",
+  "Argentina x Espanha": "2026-06-14T17:55:00",
+  "França x Alemanha": "2026-06-16T15:55:00",
+  "Portugal x Uruguai": "2026-06-18T19:55:00",
+  "Inglaterra x Itália": "2026-06-20T16:55:00"
+};
+
+app.put("/api/apostas/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { whatsapp, placarCasa, placarFora } = req.body;
+
+    if (!whatsapp) {
+      return res.status(400).json({ erro: "WhatsApp é obrigatório." });
+    }
+
+    if (placarCasa === undefined || placarFora === undefined) {
+      return res.status(400).json({ erro: "Informe os dois placares." });
+    }
+
+    const telefoneInformado = String(whatsapp).replace(/\D/g, "");
+
+    const { data: aposta, error } = await supabase
+      .from("apostas")
+      .select(`
+        id,
+        jogo,
+        status,
+        participante:participantes (
+          id,
+          whatsapp
+        )
+      `)
+      .eq("id", id)
+      .single();
+
+    if (error || !aposta) {
+      return res.status(404).json({ erro: "Aposta não encontrada." });
+    }
+
+    const telefoneBanco = String(aposta.participante?.whatsapp || "").replace(/\D/g, "");
+
+    const mesmoWhatsapp =
+      telefoneBanco === telefoneInformado ||
+      telefoneBanco.endsWith(telefoneInformado) ||
+      telefoneInformado.endsWith(telefoneBanco);
+
+    if (!mesmoWhatsapp) {
+      return res.status(403).json({ erro: "WhatsApp não confere com esta aposta." });
+    }
+
+    if (aposta.status !== "ativa") {
+      return res.status(403).json({ erro: "Apenas apostas ativas podem ser editadas." });
+    }
+
+    const prazoEdicao = prazosEdicaoJogos[aposta.jogo];
+
+    if (prazoEdicao && Date.now() >= new Date(prazoEdicao).getTime()) {
+      return res.status(403).json({
+        erro: "O prazo para editar esta aposta já encerrou."
+      });
+    }
+
+    const { data: apostaAtualizada, error: updateError } = await supabase
+      .from("apostas")
+      .update({
+        placar_casa: Number(placarCasa),
+        placar_fora: Number(placarFora)
+      })
+      .eq("id", id)
+      .select()
+      .single();
+
+    if (updateError) throw updateError;
+
+    res.json({
+      mensagem: "Aposta atualizada com sucesso.",
+      aposta: apostaAtualizada
+    });
+
+  } catch (error) {
+    console.error("[EDITAR_APOSTA] Erro:", error);
+    res.status(500).json({
+      erro: "Erro ao editar aposta.",
+      detalhe: error.message
+    });
+  }
+});
+
 app.post("/webhook/mercado-pago", async (req, res) => {
   try {
     console.log("[WEBHOOK_MP] Notificação recebida", {

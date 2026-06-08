@@ -33,7 +33,7 @@ const mpClient = new MercadoPagoConfig({
 });
 
 const payment = new Payment(mpClient);
-const PIX_AMOUNT = Number(process.env.PIX_AMOUNT || "10.00");
+const PIX_AMOUNT = Number(process.env.PIX_AMOUNT || "00.01");
 
 function normalizarEmail(email) {
   if (email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return email;

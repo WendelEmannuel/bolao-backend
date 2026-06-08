@@ -116,19 +116,20 @@ app.post("/api/criar-pix", async (req, res) => {
     if (temDadosAposta) {
       const times = extrairTimes(jogo, time_casa || timeCasa, time_fora || timeFora);
 
-      const { data: apostaCriada, error: apostaError } = await supabase
-        .from("apostas")
-        .insert({
-          participante_id: participante.id,
-          jogo,
-          time_casa: times.timeCasa,
-          time_fora: times.timeFora,
-          placar_casa: Number(placarCasa),
-          placar_fora: Number(placarFora),
-          status: "aguardando_pagamento"
-        })
-        .select()
-        .single();
+    const { data: apostaCriada, error: apostaError } = await supabase
+      .from("apostas")
+      .insert({
+        participante_id: participante.id,
+        nome,
+        jogo,
+        time_casa: times.timeCasa,
+        time_fora: times.timeFora,
+        placar_casa: Number(placarCasa),
+        placar_fora: Number(placarFora),
+        status: "aguardando_pagamento"
+      })
+      .select()
+      .single();
 
       if (apostaError) throw apostaError;
       aposta = apostaCriada;
